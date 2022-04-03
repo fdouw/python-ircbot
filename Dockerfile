@@ -14,4 +14,4 @@ ADD bot /mnt/mkbotje
 WORKDIR /mnt/mkbotje
 
 # Start the bot when running the container
-ENTRYPOINT [ "python3", "botje.py" ]
+ENTRYPOINT [ "python3", "bot.py" ]
