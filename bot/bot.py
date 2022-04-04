@@ -80,8 +80,8 @@ for response in client.read_response_lines():
             # Python is weird when indexing and reversing at the same time
             # the :0:-1 drops the first character and reverses the remainder
             msg = data[3].split(maxsplit=2)
-            if len(msg) == 2:
-                client.send_message(channel, msg[1][:0:-1])
+            if len(msg) >= 2:
+                client.send_message(channel, msg[1][::-1])
             elif len(previousMessage) > 0:
                 client.send_message(channel, previousMessage[:0:-1])
             else:
