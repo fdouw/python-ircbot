@@ -10,47 +10,33 @@ import toml
 
 ### Read settings   ####################################################################################################
 
+
+def get_config_item(config, item, default=None):
+    result = config
+    for key in item:
+        if key in result:
+            result = result[key]
+        else:
+            return default
+    return result
+
+
 config = toml.load("config.toml")
 
-if "bot" in config.keys() and "botnick" in config["bot"].keys():
-    nick = config["bot"]["botnick"]
-else:
-    nick = "bot"
-
-if "bot" in config.keys() and "ownernick" in config["bot"].keys():
-    ownernick = config["bot"]["ownernick"]
-else:
-    ownernick = nick
-
-if "server" in config.keys() and "channel" in config["server"].keys():
-    channel = config["server"]["channel"]
-else:
-    channel = "#test"
-
-if "server" in config.keys() and "address" in config["server"].keys():
-    serverAddress = config["server"]["address"]
-else:
-    serverAddress = "localhost"
-
-if "topdesk" in config.keys():
-    topdeskServer = (
-        config["topdesk"]["server"] if "server" in config["topdesk"].keys() else None
-    )
-    topdeskUser = (
-        config["topdesk"]["user"] if "user" in config["topdesk"].keys() else None
-    )
-    topdeskPass = (
-        config["topdesk"]["password"]
-        if "password" in config["topdesk"].keys()
-        else None
-    )
+nick = get_config_item(config, ["bot", "botnick"], "bot")
+owernick = get_config_item(config, ["bot", "ownernick"], nick)
+channel = get_config_item(config, ["server", "channel"], "#test")
+serverAddress = get_config_item(config, ["server", "address"], "localhost")
+topdeskServer = get_config_item(config, ["topdesk", "server"])
+topdeskUser = get_config_item(config, ["topdesk", "user"])
+topdeskPass = get_config_item(config, ["topdesk", "password"])
 
 
 ### Functions   ########################################################################################################
 
 
 def get_topdesk_melding_desc(number):
-    if topdeskUser and topdeskPass:
+    if topdeskServer and topdeskUser and topdeskPass:
         print(f"[INFO] Lookup TOPdesk call {number}")
         response = requests.get(
             f"{topdeskServer}/tas/api/incidents/number/{number}",
