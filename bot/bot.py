@@ -62,26 +62,28 @@ if not client.connect(nick, channel, serverAddress):
 ### Run bot   ##########################################################################################################
 
 meldingPattern = re.compile(r"[mM]\d{8}")
+halloPattern = re.compile(f"(Hallo|Hoi) {nick}!?", re.IGNORECASE)
 
 previousMessage = ""
 
-for response in client.read_response_lines():
-    # In most instances (PRIVMSGs), the fourth entry is a message,
-    # splitting like this allows us to retain the spaces in the message
-    data = response.strip().split(maxsplit=3)
+for response in client.read_messages():
 
-    if data[1] == "PRIVMSG" and data[2] == channel:
+    if response.command == "PRIVMSG" and channel in response.receivers:
 
-        if data[3] == ":!catfact":
+        if response.message == "!catfact":
             resp = requests.get("https://catfact.ninja/fact")
             fact = resp.json()["fact"]
             for line in fact.splitlines():
                 client.send_message(channel, line)
 
-        elif data[3] == ":!hallo":
-            client.send_message(channel, "Hoi luitjes!")
+        elif response.message == "!hallo" or halloPattern.match(response.message):
+            usernick = response.source_nick()
+            if usernick:
+                client.send_message(channel, f"Hoi {usernick}!")
+            else:
+                client.send_message(channel, "Hallo!")
 
-        elif data[3] == ":!help":
+        elif response.message == "!help":
             client.send_message(channel, f"Hoi, ik ben {nick}! En ik kan deze dingen:")
             client.send_message(
                 channel,
@@ -95,28 +97,26 @@ for response in client.read_response_lines():
                 "!reverse [msg]   ik keer msg om, als msg leeg is keer ik het vorige chatbericht om;",
             )
 
-        elif data[3] == ":!joke":
+        elif response.message == "!joke":
             resp = requests.get("https://v2.jokeapi.dev/joke/Any?type=single&safe-mode")
             joke = resp.json()["joke"]
             for line in joke.splitlines():
                 client.send_message(channel, line)
             print(f"[Info] Joke metadata: {resp.content}")
 
-        elif data[3].startswith(":!reverse"):
-            # Python is weird when indexing and reversing at the same time
-            # the :0:-1 drops the first character and reverses the remainder
-            msg = data[3].split(maxsplit=2)
+        elif response.message.split(maxsplit=1)[0] == "!reverse":
+            msg = response.message.split(maxsplit=2)
             if len(msg) >= 2:
                 client.send_message(channel, msg[1][::-1])
             elif len(previousMessage) > 0:
-                client.send_message(channel, previousMessage[:0:-1])
+                client.send_message(channel, previousMessage[::-1])
             else:
                 client.send_message(channel, "Ik heb niets om te reversen :(")
 
-        elif m := meldingPattern.search(data[3]):
+        elif m := meldingPattern.search(response.message):
             melding = m.group()
             meldingMsg = get_topdesk_melding_desc(melding)
             if meldingMsg:
                 client.send_message(channel, meldingMsg)
 
-        previousMessage = data[3]
+        previousMessage = response.message

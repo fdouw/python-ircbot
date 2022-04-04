@@ -18,48 +18,20 @@ class IRC:
         self.socket.send(bytes(f"USER {username} 0 * :{realname}\n", "UTF-8"))
 
         # Wait for the 001 response from the server, indicating that we have registered
-        for response in self.read_response_lines():
-            response = response.split()
-
-            if response[1] == "001":
+        for response in self.read_messages():
+            if response.command == "001":
                 self.socket.send(bytes(f"JOIN {channel}\n", "UTF-8"))
                 print(f"Joined channel {channel}")
                 return True
 
-            elif response[1] == "ERROR":
+            elif response.command == "ERROR":
                 print(
-                    f"[Error] Received an error while connecting: {' '.join(response[2:])}"
+                    f"[Error] Received an error while connecting: {response.parameters}"
                 )
                 print(f"Closing connection")
                 self.socket.shutdown(socket.SHUT_RDWR)
                 self.socket.close()
                 return False
-
-    def read_response_lines(self, answerPing=True):
-        # IRC responses / messages are deliminated by line endings, but socket doesn't know that, so we will have to
-        # keep track of those our selves.
-        # The leftover is the start of the next response, so we need to remember that.
-        leftover = ""
-
-        while True:
-            message = leftover
-            splitIndex = message.find("\n")
-
-            while splitIndex == -1:
-                message += self.socket.recv(2048).decode("UTF-8")
-                splitIndex = message.find("\n")
-
-            leftover = message[splitIndex + 1 :]
-            message = message[:splitIndex]
-
-            print(f"[Received] {message}")
-            if answerPing and message.startswith("PING"):
-                self.socket.send(
-                    bytes(f"PONG {message.split(maxsplit=3)[1]}\n", "UTF-8")
-                )
-                continue
-
-            yield message
 
     def read_messages(self, answerPing=True, filter=None):
         """
@@ -68,13 +40,29 @@ class IRC:
         param   filter      only pass on messages whose command is in filter, pass on all messages if filter is None.
                             Note: answerPing filters out PING messages regardless of filter.
         """
-        for line in self.read_response_lines(False):
-            msg = IrcMessage.parse_message(line)
-            if answerPing and msg.command == "PING":
-                self.socket.send(bytes(f"PONG {msg.parameters}\n", "UTF-8"))
+        # IRC responses / messages are deliminated by line endings, but socket doesn't know that, so we will have to
+        # keep track of those our selves.
+        # The leftover is the start of the next response, so we need to remember that.
+        leftover = ""
+
+        while True:
+            current = leftover
+            splitIndex = current.find("\n")
+
+            while splitIndex == -1:
+                current += self.socket.recv(2048).decode("UTF-8")
+                splitIndex = current.find("\n")
+
+            leftover = current[splitIndex + 1 :]
+            current = current[:splitIndex]
+
+            print(f"[Received] {current}")
+            message = IrcMessage.parse_message(current)
+            if answerPing and message.command == "PING":
+                self.socket.send(bytes(f"PONG {message.parameters}\n", "UTF-8"))
                 continue
-            if filter == None or msg.command in filter:
-                yield msg
+            if filter == None or message.command in filter:
+                yield message
 
 
 class IrcMessage:
@@ -87,11 +75,13 @@ class IrcMessage:
 
     @staticmethod
     def parse_message(rawmsg: str):
+        # The : before the prefix is required, but InpIRCd seemingly misses it during the MotD.
+        # I'm keeping it optional here for compatibility.
         msgPatternMatch = re.fullmatch(
-            r"(@[^ ]+ )?(:[^ ]+ )?([0-9]{3}|[A-Z]+) (.*)", rawmsg.strip()
+            r"(@[^ ]+ )?(:?[^ ]+ )?([0-9]{3}|[A-Z]+) (.*)", rawmsg.strip()
         )
         if not msgPatternMatch:
-            raise f"Invalid message: {rawmsg}"
+            raise ValueError(f"Invalid message: {rawmsg}")
         tags, source, command, parameters = msgPatternMatch.groups()
 
         # Process some shared properties of irc messages
