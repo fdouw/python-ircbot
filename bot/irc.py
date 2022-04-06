@@ -78,7 +78,7 @@ class IrcMessage:
         # The : before the prefix is required, but InpIRCd seemingly misses it during the MotD.
         # I'm keeping it optional here for compatibility.
         msgPatternMatch = re.fullmatch(
-            r"(@[^ ]+ )?(:?[^ ]+ )?([0-9]{3}|[A-Z]+) (.*)", rawmsg.strip()
+            r"(@[^ ]+ )?(:?[^ ]+ )?([0-9]{1,3}|[A-Z]+) (.*)", rawmsg.strip()
         )
         if not msgPatternMatch:
             raise ValueError(f"Invalid message: {rawmsg}")
