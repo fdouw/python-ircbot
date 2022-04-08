@@ -121,6 +121,13 @@ for response in client.read_messages():
                     channel, "Ik heb niets om te reversen :("
                 )
 
+        elif response.message == "!tronald":
+            resp = requests.get("https://tronalddump.io/random/quote")
+            joke = resp.json()["value"]
+            for line in joke.splitlines():
+                currentMessage = client.send_message(channel, line)
+            print(f"[Info] Tronald metadata: {resp.content}")
+
         elif m := meldingPattern.search(response.message):
             melding = m.group()
             meldingMsg = get_topdesk_melding_desc(melding)
