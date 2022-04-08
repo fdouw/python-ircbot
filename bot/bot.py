@@ -70,29 +70,35 @@ for response in client.read_messages():
 
     if response.command == "PRIVMSG" and channel in response.receivers:
 
+        # Keep track of the current message, this will be the next previous message
+        # It is either the received message, or the bot's reply
+        currentMessage = response.message
+
         if response.message == "!catfact":
             resp = requests.get("https://catfact.ninja/fact")
             fact = resp.json()["fact"]
             for line in fact.splitlines():
-                client.send_message(channel, line)
+                currentMessage = client.send_message(channel, line)
 
         elif response.message == "!hallo" or halloPattern.match(response.message):
             usernick = response.source_nick()
             if usernick:
-                client.send_message(channel, f"Hoi {usernick}!")
+                currentMessage = client.send_message(channel, f"Hoi {usernick}!")
             else:
-                client.send_message(channel, "Hallo!")
+                currentMessage = client.send_message(channel, "Hallo!")
 
         elif response.message == "!help":
-            client.send_message(channel, f"Hoi, ik ben {nick}! En ik kan deze dingen:")
-            client.send_message(
+            currentMessage = client.send_message(
+                channel, f"Hoi, ik ben {nick}! En ik kan deze dingen:"
+            )
+            currentMessage = client.send_message(
                 channel,
                 "!catfact         ik vertel een kattenfeitje van catfact.ninja;",
             )
-            client.send_message(
+            currentMessage = client.send_message(
                 channel, "!joke            ik vertel een mop van jokeapi.dev;"
             )
-            client.send_message(
+            currentMessage = client.send_message(
                 channel,
                 "!reverse [msg]   ik keer msg om, als msg leeg is keer ik het vorige chatbericht om;",
             )
@@ -101,22 +107,24 @@ for response in client.read_messages():
             resp = requests.get("https://v2.jokeapi.dev/joke/Any?type=single&safe-mode")
             joke = resp.json()["joke"]
             for line in joke.splitlines():
-                client.send_message(channel, line)
+                currentMessage = client.send_message(channel, line)
             print(f"[Info] Joke metadata: {resp.content}")
 
         elif response.message.split(maxsplit=1)[0] == "!reverse":
             msg = response.message.split(maxsplit=2)
             if len(msg) >= 2:
-                client.send_message(channel, msg[1][::-1])
+                currentMessage = client.send_message(channel, msg[1][::-1])
             elif len(previousMessage) > 0:
-                client.send_message(channel, previousMessage[::-1])
+                currentMessage = client.send_message(channel, previousMessage[::-1])
             else:
-                client.send_message(channel, "Ik heb niets om te reversen :(")
+                currentMessage = client.send_message(
+                    channel, "Ik heb niets om te reversen :("
+                )
 
         elif m := meldingPattern.search(response.message):
             melding = m.group()
             meldingMsg = get_topdesk_melding_desc(melding)
             if meldingMsg:
-                client.send_message(channel, meldingMsg)
+                currentMessage = client.send_message(channel, meldingMsg)
 
-        previousMessage = response.message
+        previousMessage = currentMessage

@@ -7,8 +7,14 @@ class IRC:
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
     def send_message(self, channel, msg):
+        if msg == "":
+            print(
+                "[INFO] Empty messages are refused by the server, I'll send a space instead."
+            )
+            msg = " "
         print(f"Sending message: '{msg}'")
         self.socket.send(bytes(f"PRIVMSG {channel} :{msg}\n", "UTF-8"))
+        return msg
 
     def connect(self, nick, channel, server, port=6667):
         username = nick
@@ -78,7 +84,7 @@ class IrcMessage:
         # The : before the prefix is required, but InpIRCd seemingly misses it during the MotD.
         # I'm keeping it optional here for compatibility.
         msgPatternMatch = re.fullmatch(
-            r"(@[^ ]+ )?(:?[^ ]+ )?([0-9]{1,3}|[A-Z]+) (.*)", rawmsg.strip()
+            r"(@[^ ]+ +)?(:?[^ ]+ +)?([0-9]{1,3}|[A-Z]+) (.*)", rawmsg.rstrip()
         )
         if not msgPatternMatch:
             raise ValueError(f"Invalid message: {rawmsg}")
