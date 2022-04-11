@@ -64,6 +64,13 @@ if not client.connect(nick, channel, serverAddress):
 meldingPattern = re.compile(r"[mM]\d{8}")
 halloPattern = re.compile(f"(Hallo|Hoi) {nick}!?", re.IGNORECASE)
 
+helpText = f"""Hoi, ik ben {nick}! En ik kan deze dingen:
+!catfact        ik vertel een kattenfeitje van catfact.ninja;
+!joke           ik vertel een mop van jokeapi.dev;
+!reverse [msg]  ik keer msg om, als msg leeg is keer ik het vorige chatbericht om;
+!tronald        ik citeer de cheeto via tronalddump.io.
+Als je me een meldingsnummer geeft, dan geef ik de omschrijving en status."""
+
 previousMessage = ""
 
 for response in client.read_messages():
@@ -76,9 +83,7 @@ for response in client.read_messages():
 
         if response.message == "!catfact":
             resp = requests.get("https://catfact.ninja/fact")
-            fact = resp.json()["fact"]
-            for line in fact.splitlines():
-                currentMessage = client.send_message(channel, line)
+            currentMessage = client.send_all_messages(channel, resp.json()["fact"])
 
         elif response.message == "!hallo" or halloPattern.match(response.message):
             usernick = response.source_nick()
@@ -88,26 +93,11 @@ for response in client.read_messages():
                 currentMessage = client.send_message(channel, "Hallo!")
 
         elif response.message == "!help":
-            currentMessage = client.send_message(
-                channel, f"Hoi, ik ben {nick}! En ik kan deze dingen:"
-            )
-            currentMessage = client.send_message(
-                channel,
-                "!catfact         ik vertel een kattenfeitje van catfact.ninja;",
-            )
-            currentMessage = client.send_message(
-                channel, "!joke            ik vertel een mop van jokeapi.dev;"
-            )
-            currentMessage = client.send_message(
-                channel,
-                "!reverse [msg]   ik keer msg om, als msg leeg is keer ik het vorige chatbericht om;",
-            )
+            currentMessage = client.send_all_messages(channel, helpText)
 
         elif response.message == "!joke":
             resp = requests.get("https://v2.jokeapi.dev/joke/Any?type=single&safe-mode")
-            joke = resp.json()["joke"]
-            for line in joke.splitlines():
-                currentMessage = client.send_message(channel, line)
+            currentMessage = client.send_all_messages(channel, resp.json()["joke"])
             print(f"[Info] Joke metadata: {resp.content}")
 
         elif response.message.split(maxsplit=1)[0] == "!reverse":
@@ -123,9 +113,7 @@ for response in client.read_messages():
 
         elif response.message == "!tronald":
             resp = requests.get("https://tronalddump.io/random/quote")
-            joke = resp.json()["value"]
-            for line in joke.splitlines():
-                currentMessage = client.send_message(channel, line)
+            currentMessage = client.send_all_messages(channel, resp.json()["value"])
             print(f"[Info] Tronald metadata: {resp.content}")
 
         elif m := meldingPattern.search(response.message):

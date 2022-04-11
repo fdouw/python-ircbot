@@ -6,16 +6,6 @@ class IRC:
     def __init__(self):
         self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-    def send_message(self, channel, msg):
-        if msg == "":
-            print(
-                "[INFO] Empty messages are refused by the server, I'll send a space instead."
-            )
-            msg = " "
-        print(f"Sending message: '{msg}'")
-        self.socket.send(bytes(f"PRIVMSG {channel} :{msg}\n", "UTF-8"))
-        return msg
-
     def connect(self, nick, channel, server, port=6667):
         username = nick
         realname = nick
@@ -38,6 +28,22 @@ class IRC:
                 self.socket.shutdown(socket.SHUT_RDWR)
                 self.socket.close()
                 return False
+
+    def send_message(self, channel, msg):
+        if msg == "":
+            print(
+                "[INFO] Empty messages are refused by the server, I'll send a space instead."
+            )
+            msg = " "
+        print(f"Sending message: '{msg}'")
+        self.socket.send(bytes(f"PRIVMSG {channel} :{msg}\n", "UTF-8"))
+        return msg
+
+    def send_all_messages(self, channel, text):
+        lines = text.splitlines()
+        for line in lines:
+            self.send_message(channel, line)
+        return lines[-1]
 
     def read_messages(self, answerPing=True, filter=None):
         """
