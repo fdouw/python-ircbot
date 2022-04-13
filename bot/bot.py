@@ -35,18 +35,32 @@ topdeskPass = get_config_item(config, ["topdesk", "password"])
 ### Functions   ########################################################################################################
 
 
-def get_topdesk_melding_desc(number):
+def get_topdesk_ticket_desc(number: str):
     if topdeskServer and topdeskUser and topdeskPass:
-        print(f"[INFO] Lookup TOPdesk call {number}")
-        response = requests.get(
-            f"{topdeskServer}/tas/api/incidents/number/{number}",
-            auth=HTTPBasicAuth(topdeskUser, topdeskPass),
-        )
-        if response.status_code == 200:
-            respJson = json.loads(response.text)
-            return f"{number}: {respJson['callerBranch']['name']} - {respJson['briefDescription']} ({respJson['processingStatus']['name']})"
+        print(f"[INFO] Lookup TOPdesk ticket {number}")
+        number = number.upper()
+        if number[0] == "M":
+            response = requests.get(
+                f"{topdeskServer}/tas/api/incidents/number/{number}",
+                auth=HTTPBasicAuth(topdeskUser, topdeskPass),
+            )
+            if response.status_code == 200:
+                respJson = json.loads(response.text)
+                return f"{number}: {respJson['callerBranch']['name']} - {respJson['briefDescription']} ({respJson['processingStatus']['name']})"
+            else:
+                return None
         else:
-            return None
+            # Assume number[0] == "W"
+            response = requests.get(
+                f"{topdeskServer}/tas/api/operatorChanges/{number}",
+                auth=HTTPBasicAuth(topdeskUser, topdeskPass),
+            )
+            if response.status_code == 200:
+                respJson = json.loads(response.text)
+                return f"{number}: {respJson['requester']['branch']['name']} - {respJson['briefDescription']}"
+            else:
+                return None
+
     else:
         print("[INFO] No credentials for TOPdesk, cannot query for call information")
 
@@ -61,7 +75,7 @@ if not client.connect(nick, channel, serverAddress):
 
 ### Run bot   ##########################################################################################################
 
-meldingPattern = re.compile(r"[mM]\d{8}")
+ticketPattern = re.compile(r"[mMwW]\d{8}")
 halloPattern = re.compile(f"(Hallo|Hoi) {nick}!?", re.IGNORECASE)
 
 helpText = f"""Hoi, ik ben {nick}! En ik kan deze dingen:
@@ -100,8 +114,16 @@ for response in client.read_messages():
             currentMessage = client.send_all_messages(channel, resp.json()["joke"])
             print(f"[Info] Joke metadata: {resp.content}")
 
+        elif response.message.startswith("!name "):
+            msg = response.message.split(maxsplit=1)
+            if len(msg) == 1 or msg[1].strip() == "":
+                print(f"[Info] !name received, but no new name given")
+            else:
+                nick = msg[1]
+                halloPattern = re.compile(f"(Hallo|Hoi) {nick}!?", re.IGNORECASE)
+
         elif response.message.split(maxsplit=1)[0] == "!reverse":
-            msg = response.message.split(maxsplit=2)
+            msg = response.message.split(maxsplit=1)
             if len(msg) >= 2:
                 currentMessage = client.send_message(channel, msg[1][::-1])
             elif len(previousMessage) > 0:
@@ -116,10 +138,10 @@ for response in client.read_messages():
             currentMessage = client.send_all_messages(channel, resp.json()["value"])
             print(f"[Info] Tronald metadata: {resp.content}")
 
-        elif m := meldingPattern.search(response.message):
-            melding = m.group()
-            meldingMsg = get_topdesk_melding_desc(melding)
-            if meldingMsg:
-                currentMessage = client.send_message(channel, meldingMsg)
+        elif m := ticketPattern.search(response.message):
+            number = m.group()
+            ticketMsg = get_topdesk_ticket_desc(number)
+            if ticketMsg:
+                currentMessage = client.send_message(channel, ticketMsg)
 
         previousMessage = currentMessage
